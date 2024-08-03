@@ -6,6 +6,7 @@ var ErrNodeExists = errors.New("node already exists")
 var ErrEdgeExists = errors.New("edge already exists")
 var ErrNodeNotFound = errors.New("node not found")
 var ErrEdgeNotFound = errors.New("edge not found")
+var ErrNodeNotReachable = errors.New("node not reachable")
 
 type Node struct {
 	ID       string   `json:"id"`
@@ -20,6 +21,14 @@ type Edge struct {
 	End   string  `json:"end"`
 	Speed float64 `json:"speed"`
 	Poly  []Point `json:"polygon"`
+}
+
+func (e *Edge) Length() float64 {
+	length := 0.0
+	for i := 0; i < len(e.Poly)-1; i++ {
+		length += e.Poly[i].Distance(e.Poly[i+1])
+	}
+	return length
 }
 
 type Graph struct {
@@ -91,26 +100,6 @@ func (g *Graph) GetEdge(id string) (*Edge, error) {
 }
 
 func (g *Graph) Preprocess() {
-	// m := make(map[Point]string)
-	// dupNodes, missEdges := 0, 0
-	// for _, node := range g.Nodes {
-	// 	if _, ok := m[node.Position]; ok {
-	// 		dupNodes++
-	// 	} else {
-	// 		m[node.Position] = node.ID
-	// 	}
-	// }
-	// for _, edge := range g.Edges {
-	// 	for _, point := range edge.Poly {
-	// 		if _, ok := m[point]; !ok {
-	// 			m[point] = "dummy"
-	// 			missEdges++
-	// 		}
-	// 	}
-	// }
-	// fmt.Println("Duplicate nodes:", dupNodes)
-	// fmt.Println("Missing edges:", missEdges)
-
 	nodes := make([]*Node, 0, len(g.Nodes))
 	for _, node := range g.Nodes {
 		nodes = append(nodes, node)
@@ -118,15 +107,75 @@ func (g *Graph) Preprocess() {
 	g.Seg = NewSegment2D(nodes)
 }
 
-func (g *Graph) GetClosestNodes(point Point, distance float64) []*Node {
+func (g *Graph) GetClosestSquare(point Point, distance float64) []*Node {
 	buttomLeft, topRight := point.Move(-distance, -distance), point.Move(distance, distance)
-	candidates := g.Seg.GetInterval(buttomLeft.Longitude, topRight.Longitude, buttomLeft.Latitude, topRight.Latitude)
+	return g.Seg.GetInterval(buttomLeft.Longitude, topRight.Longitude, buttomLeft.Latitude, topRight.Latitude)
+}
 
+func (g *Graph) GetClosestNodes(point Point, distance float64) []*Node {
 	result := make([]*Node, 0)
+	candidates := g.GetClosestSquare(point, distance)
 	for _, node := range candidates {
 		if node.Position.Distance(point) <= distance {
 			result = append(result, node)
 		}
 	}
 	return result
+}
+
+type heapNode struct {
+	node     *Node
+	distance float64
+}
+
+func (g *Graph) Distance(start, end string, maxDuration float64) (float64, error) {
+	startNode, err := g.GetNode(start)
+	if err != nil {
+		return 0, err
+	}
+
+	priorityQueue := NewHeap(func(i, j interface{}) bool {
+		if i.(heapNode).distance == j.(heapNode).distance {
+			return i.(heapNode).node.ID < j.(heapNode).node.ID
+		} else {
+			return i.(heapNode).distance < j.(heapNode).distance
+		}
+	})
+	visited := make(map[string]bool)
+	dist := make(map[string]float64)
+
+	dist[startNode.ID] = 0
+	priorityQueue.Push(heapNode{node: startNode, distance: 0})
+	for priorityQueue.Len() > 0 {
+		current := priorityQueue.Pop().(heapNode)
+		if current.distance > maxDuration {
+			break
+		}
+		if visited[current.node.ID] {
+			continue
+		}
+		visited[current.node.ID] = true
+
+		if current.node.ID == end {
+			return current.distance, nil
+		}
+
+		g.processOutEdges(current, priorityQueue, visited, dist)
+	}
+
+	return 0, ErrNodeNotReachable
+}
+
+func (g *Graph) processOutEdges(current heapNode, priorityQueue *Heap, visited map[string]bool, dist map[string]float64) {
+	for _, edgeID := range current.node.OutEdges {
+		edge := g.Edges[edgeID]
+		neighbour, _ := g.GetNode(edge.End)
+		if !visited[neighbour.ID] {
+			distance := current.distance + edge.Length()/edge.Speed
+			if _, ok := dist[neighbour.ID]; !ok || distance < dist[neighbour.ID] {
+				dist[neighbour.ID] = distance
+				priorityQueue.Push(heapNode{node: neighbour, distance: distance})
+			}
+		}
+	}
 }
