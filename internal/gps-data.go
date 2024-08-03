@@ -5,10 +5,10 @@ import (
 	"sort"
 	"strconv"
 
-	"github.com/ArshiaDadras/Ariadne/models"
+	"github.com/ArshiaDadras/Ariadne/pkg"
 )
 
-func ParseGPSData(path string) ([]models.Point, error) {
+func ParseGPSData(path string) ([]pkg.Point, error) {
 	data, err := ParseCSV(path)
 	if err != nil {
 		return nil, err
@@ -18,7 +18,7 @@ func ParseGPSData(path string) ([]models.Point, error) {
 		return data[i][0]+data[i][1] < data[j][0]+data[j][1]
 	})
 
-	points := make([]models.Point, 0, len(data))
+	points := make([]pkg.Point, 0, len(data))
 	for _, row := range data {
 		latitude, err := strconv.ParseFloat(row[2], 64)
 		if err != nil {
@@ -30,7 +30,7 @@ func ParseGPSData(path string) ([]models.Point, error) {
 			return nil, err
 		}
 
-		points = append(points, models.Point{
+		points = append(points, pkg.Point{
 			Longitude: longitude,
 			Latitude:  latitude,
 		})
@@ -39,14 +39,14 @@ func ParseGPSData(path string) ([]models.Point, error) {
 	return points, nil
 }
 
-func MapMatch(graph *models.Graph, points []models.Point) ([]models.Edge, error) {
+func MapMatch(graph *pkg.Graph, points []pkg.Point) ([]pkg.Edge, error) {
 	nodes := graph.GetClosestNodes(points[0], 500)
 
-	// m := make(map[models.Point]bool)
+	// m := make(map[pkg.Point]bool)
 	// for _, node := range nodes {
 	// 	m[node.Position] = true
 	// }
-	// others := make([]*models.Node, 0)
+	// others := make([]*pkg.Node, 0)
 	// for _, node := range graph.Nodes {
 	// 	if _, ok := m[node.Position]; !ok && node.Position.Distance(points[0]) < 1000 {
 	// 		others = append(others, node)

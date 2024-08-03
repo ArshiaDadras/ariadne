@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/ArshiaDadras/Ariadne/models"
+	"github.com/ArshiaDadras/Ariadne/pkg"
 )
 
 func ParseCSV(path string) ([][]string, error) {
@@ -24,8 +24,8 @@ func ParseCSV(path string) ([][]string, error) {
 	return data[1:], err
 }
 
-func parsePoints(pointStr string) []models.Point {
-	points := make([]models.Point, 0)
+func parsePoints(pointStr string) []pkg.Point {
+	points := make([]pkg.Point, 0)
 	for _, point := range strings.Split(pointStr[11:len(pointStr)-1], ", ") {
 		coordinates := strings.Split(point, " ")
 		longitude, err := strconv.ParseFloat(coordinates[0], 64)
@@ -37,7 +37,7 @@ func parsePoints(pointStr string) []models.Point {
 			log.Fatalf("Error parsing latitude: %v", err)
 		}
 
-		points = append(points, models.Point{
+		points = append(points, pkg.Point{
 			Longitude: longitude,
 			Latitude:  latitude,
 		})
@@ -45,7 +45,7 @@ func parsePoints(pointStr string) []models.Point {
 	return points
 }
 
-func getOrCreateNode(graph *models.Graph, nodeID string, point models.Point) (*models.Node, error) {
+func getOrCreateNode(graph *pkg.Graph, nodeID string, point pkg.Point) (*pkg.Node, error) {
 	node, err := graph.GetNode(nodeID)
 	if err != nil {
 		node, err = graph.AddNode(nodeID, point)
@@ -56,7 +56,7 @@ func getOrCreateNode(graph *models.Graph, nodeID string, point models.Point) (*m
 	return node, nil
 }
 
-func BuildRoadNetwork(graph *models.Graph, path string) error {
+func BuildRoadNetwork(graph *pkg.Graph, path string) error {
 	data, err := ParseCSV(path)
 	if err != nil {
 		return err
