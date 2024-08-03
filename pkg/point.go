@@ -2,7 +2,6 @@ package pkg
 
 import (
 	"math"
-	"strconv"
 )
 
 const (
@@ -36,6 +35,36 @@ func (p *Point) Move(dx, dy float64) Point {
 	}
 }
 
-func (p *Point) String() string {
-	return "(" + strconv.FormatFloat(p.Longitude, 'f', -1, 64) + ", " + strconv.FormatFloat(p.Latitude, 'f', -1, 64) + ")"
+func (p *Point) ClosestPointOnSegment(a, b Point) Point {
+	ap := Point{Longitude: p.Longitude - a.Longitude, Latitude: p.Latitude - a.Latitude}
+	ab := Point{Longitude: b.Longitude - a.Longitude, Latitude: b.Latitude - a.Latitude}
+	t := (ap.Longitude*ab.Longitude + ap.Latitude*ab.Latitude) / (ab.Longitude*ab.Longitude + ab.Latitude*ab.Latitude)
+
+	if t < 0 {
+		return a
+	} else if t > 1 {
+		return b
+	} else {
+		return Point{
+			Longitude: a.Longitude + ab.Longitude*t,
+			Latitude:  a.Latitude + ab.Latitude*t,
+		}
+	}
+}
+
+func (p *Point) ClosestPointOnEdge(edge Edge) Point {
+	minDistance := math.Inf(1)
+	var closestPoint Point
+
+	for i := 0; i < len(edge.Poly)-1; i++ {
+		closest := p.ClosestPointOnSegment(edge.Poly[i], edge.Poly[i+1])
+		distance := p.Distance(closest)
+
+		if distance < minDistance {
+			minDistance = distance
+			closestPoint = closest
+		}
+	}
+
+	return closestPoint
 }
