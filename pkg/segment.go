@@ -4,15 +4,15 @@ import (
 	"sort"
 )
 
-type Segment struct {
+type segment struct {
 	Start float64
 	End   float64
 	Nodes []*Node
-	Left  *Segment
-	Right *Segment
+	Left  *segment
+	Right *segment
 }
 
-func (s *Segment) GetInterval(l, r float64) []*Node {
+func (s *segment) getInterval(l, r float64) []*Node {
 	if r < s.Start || l > s.End {
 		return nil
 	}
@@ -20,22 +20,26 @@ func (s *Segment) GetInterval(l, r float64) []*Node {
 		return s.Nodes
 	}
 
-	left := s.Left.GetInterval(l, r)
-	right := s.Right.GetInterval(l, r)
+	left := s.Left.getInterval(l, r)
+	right := s.Right.getInterval(l, r)
 	if left == nil {
 		return right
 	}
 	if right == nil {
 		return left
 	}
+
+	if len(left) < len(right) {
+		left, right = right, left
+	}
 	return append(left, right...)
 }
 
-func Build(nodes []*Node, values []float64) *Segment {
+func build(nodes []*Node, values []float64) *segment {
 	if len(nodes) == 0 {
 		return nil
 	}
-	s := &Segment{Nodes: nodes, Start: values[0], End: values[len(values)-1]}
+	s := &segment{Nodes: nodes, Start: values[0], End: values[len(values)-1]}
 	if len(values) == 1 {
 		return s
 	}
@@ -43,7 +47,7 @@ func Build(nodes []*Node, values []float64) *Segment {
 	median := values[(len(values)-1)>>1]
 	lNodes, rNodes := make([]*Node, 0), make([]*Node, 0)
 	lValues, rValues := make([]float64, 0), make([]float64, 0)
-	for _, node := range s.Nodes {
+	for _, node := range nodes {
 		if node.Position.Latitude <= median {
 			lNodes = append(lNodes, node)
 			if len(lValues) == 0 || lValues[len(lValues)-1] != node.Position.Latitude {
@@ -57,11 +61,11 @@ func Build(nodes []*Node, values []float64) *Segment {
 		}
 	}
 
-	s.Left, s.Right = Build(lNodes, lValues), Build(rNodes, rValues)
+	s.Left, s.Right = build(lNodes, lValues), build(rNodes, rValues)
 	return s
 }
 
-func NewSegment(nodes []*Node) *Segment {
+func newSegment(nodes []*Node) *segment {
 	sortedNodes := make([]*Node, len(nodes))
 	values := make([]float64, 0)
 	copy(sortedNodes, nodes)
@@ -74,13 +78,13 @@ func NewSegment(nodes []*Node) *Segment {
 			values = append(values, node.Position.Latitude)
 		}
 	}
-	return Build(sortedNodes, values)
+	return build(sortedNodes, values)
 }
 
 type Segment2D struct {
 	Start float64
 	End   float64
-	Seg   *Segment
+	Seg   *segment
 	Left  *Segment2D
 	Right *Segment2D
 }
@@ -90,7 +94,7 @@ func (s *Segment2D) GetInterval(l1, r1, l2, r2 float64) []*Node {
 		return nil
 	}
 	if l1 <= s.Start && r1 >= s.End {
-		return s.Seg.GetInterval(l2, r2)
+		return s.Seg.getInterval(l2, r2)
 	}
 
 	left := s.Left.GetInterval(l1, r1, l2, r2)
@@ -101,6 +105,10 @@ func (s *Segment2D) GetInterval(l1, r1, l2, r2 float64) []*Node {
 	if right == nil {
 		return left
 	}
+
+	if len(left) < len(right) {
+		left, right = right, left
+	}
 	return append(left, right...)
 }
 
@@ -108,7 +116,7 @@ func Build2D(nodes []*Node, values []float64) *Segment2D {
 	if len(nodes) == 0 {
 		return nil
 	}
-	s := &Segment2D{Start: values[0], End: values[len(values)-1], Seg: NewSegment(nodes)}
+	s := &Segment2D{Start: values[0], End: values[len(values)-1], Seg: newSegment(nodes)}
 	if len(values) == 1 {
 		return s
 	}
