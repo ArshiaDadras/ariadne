@@ -2,11 +2,13 @@ package pkg
 
 import "errors"
 
-var ErrNodeExists = errors.New("node already exists")
-var ErrEdgeExists = errors.New("edge already exists")
-var ErrNodeNotFound = errors.New("node not found")
-var ErrEdgeNotFound = errors.New("edge not found")
-var ErrNodeNotReachable = errors.New("node not reachable")
+var (
+	ErrNodeExists       = errors.New("node already exists")
+	ErrEdgeExists       = errors.New("edge already exists")
+	ErrNodeNotFound     = errors.New("node not found")
+	ErrEdgeNotFound     = errors.New("edge not found")
+	ErrNodeNotReachable = errors.New("node not reachable")
+)
 
 type Node struct {
 	ID       string   `json:"id"`
@@ -107,14 +109,14 @@ func (g *Graph) Preprocess() {
 	g.Seg = NewSegment2D(nodes)
 }
 
-func (g *Graph) GetClosestSquare(point Point, distance float64) []*Node {
+func (g *Graph) GetSquare(point Point, distance float64) []*Node {
 	buttomLeft, topRight := point.Move(-distance, -distance), point.Move(distance, distance)
-	return g.Seg.GetInterval(buttomLeft.Longitude, topRight.Longitude, buttomLeft.Latitude, topRight.Latitude)
+	return g.Seg.GetInterval(buttomLeft.Latitude, topRight.Longitude, buttomLeft.Latitude, topRight.Latitude)
 }
 
-func (g *Graph) GetClosestNodes(point Point, distance float64) []*Node {
+func (g *Graph) GetCircle(point Point, distance float64) []*Node {
 	result := make([]*Node, 0)
-	candidates := g.GetClosestSquare(point, distance)
+	candidates := g.GetSquare(point, distance)
 	for _, node := range candidates {
 		if node.Position.Distance(point) <= distance {
 			result = append(result, node)
