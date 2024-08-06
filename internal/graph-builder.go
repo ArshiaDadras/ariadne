@@ -1,28 +1,12 @@
 package internal
 
 import (
-	"encoding/csv"
 	"log"
-	"os"
 	"strconv"
 	"strings"
 
 	"github.com/ArshiaDadras/Ariadne/pkg"
 )
-
-func ParseCSV(path string) ([][]string, error) {
-	file, err := os.Open(path)
-	if err != nil {
-		return nil, err
-	}
-
-	reader := csv.NewReader(file)
-	reader.FieldsPerRecord = -1
-	reader.Comma = '\t'
-
-	data, err := reader.ReadAll()
-	return data[1:], err
-}
 
 func parsePoints(pointStr string) []pkg.Point {
 	points := make([]pkg.Point, 0)
