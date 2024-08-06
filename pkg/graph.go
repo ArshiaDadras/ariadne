@@ -30,8 +30,8 @@ type Edge struct {
 	Length float64 `json:"length"`
 }
 
-func NewEdge(id string, start, end *Node, speed float64, poly []Point) *Edge {
-	edge := &Edge{
+func NewEdge(id string, start, end *Node, speed float64, poly []Point) (edge *Edge) {
+	edge = &Edge{
 		ID:     id,
 		Start:  start.ID,
 		End:    end.ID,
@@ -43,7 +43,7 @@ func NewEdge(id string, start, end *Node, speed float64, poly []Point) *Edge {
 	for i := 0; i < len(poly)-1; i++ {
 		edge.Length += poly[i].Distance(poly[i+1])
 	}
-	return edge
+	return
 }
 
 type Graph struct {
@@ -52,12 +52,12 @@ type Graph struct {
 	Seg   *Segment2D       `json:"-"`
 }
 
-func NewGraph() *Graph {
-	graph := &Graph{
+func NewGraph() (graph *Graph) {
+	graph = &Graph{
 		Nodes: make(map[string]*Node),
 		Edges: make(map[string]*Edge),
 	}
-	return graph
+	return
 }
 
 func (g *Graph) AddNode(id string, position Point) (*Node, error) {
@@ -121,15 +121,14 @@ func (g *Graph) GetSquare(point Point, distance float64) []*Node {
 	return g.Seg.GetInterval(buttomLeft.Latitude, topRight.Longitude, buttomLeft.Latitude, topRight.Latitude)
 }
 
-func (g *Graph) GetCircle(point Point, distance float64) []*Node {
-	result := make([]*Node, 0)
+func (g *Graph) GetCircle(point Point, distance float64) (result []*Node) {
 	candidates := g.GetSquare(point, distance)
 	for _, node := range candidates {
 		if node.Position.Distance(point) <= distance {
 			result = append(result, node)
 		}
 	}
-	return result
+	return
 }
 
 type heapNode struct {
@@ -140,7 +139,7 @@ type heapNode struct {
 func (g *Graph) Distance(start, end string, maxDuration float64, considerSpeed bool) (float64, error) {
 	startNode, err := g.GetNode(start)
 	if err != nil {
-		return 0, err
+		return -1, err
 	}
 
 	priorityQueue := NewHeap(func(i, j interface{}) bool {
@@ -172,7 +171,7 @@ func (g *Graph) Distance(start, end string, maxDuration float64, considerSpeed b
 		g.updateDistances(current, priorityQueue, visited, dist, considerSpeed)
 	}
 
-	return 0, ErrNodeNotReachable
+	return -1, ErrNodeNotReachable
 }
 
 func (g *Graph) updateDistances(current heapNode, priorityQueue *Heap, visited map[string]bool, dist map[string]float64, considerSpeed bool) {
@@ -190,8 +189,8 @@ func (g *Graph) updateDistances(current heapNode, priorityQueue *Heap, visited m
 	}
 }
 
-func calculateDistance(currentDistance float64, edge *Edge, considerSpeed bool) float64 {
-	distance := currentDistance
+func calculateDistance(currentDistance float64, edge *Edge, considerSpeed bool) (distance float64) {
+	distance = currentDistance
 	if considerSpeed {
 		if edge.Speed > 0 {
 			distance += edge.Length / edge.Speed
@@ -201,13 +200,12 @@ func calculateDistance(currentDistance float64, edge *Edge, considerSpeed bool) 
 	} else {
 		distance += edge.Length
 	}
-	return distance
+	return
 }
 
-func (e *Edge) LengthTo(point Point) float64 {
+func (e *Edge) LengthTo(point Point) (length float64) {
 	intersect := point.ClosestPointOnEdge(e)
 
-	length := 0.0
 	for i := 0; i < len(e.Poly)-1; i++ {
 		if intersect.IsOnSegment(e.Poly[i], e.Poly[i+1]) {
 			length += intersect.Distance(e.Poly[i])

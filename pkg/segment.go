@@ -35,13 +35,13 @@ func (s *segment) getInterval(l, r float64) []*Node {
 	return append(left, right...)
 }
 
-func build(nodes []*Node, values []float64) *segment {
+func build(nodes []*Node, values []float64) (s *segment) {
 	if len(nodes) == 0 {
 		return nil
 	}
-	s := &segment{Nodes: nodes, Start: values[0], End: values[len(values)-1]}
+	s = &segment{Nodes: nodes, Start: values[0], End: values[len(values)-1]}
 	if len(values) == 1 {
-		return s
+		return
 	}
 
 	median := values[(len(values)-1)>>1]
@@ -62,7 +62,7 @@ func build(nodes []*Node, values []float64) *segment {
 	}
 
 	s.Left, s.Right = build(lNodes, lValues), build(rNodes, rValues)
-	return s
+	return
 }
 
 func newSegment(nodes []*Node) *segment {
@@ -112,13 +112,13 @@ func (s *Segment2D) GetInterval(l1, r1, l2, r2 float64) []*Node {
 	return append(left, right...)
 }
 
-func Build2D(nodes []*Node, values []float64) *Segment2D {
+func Build2D(nodes []*Node, values []float64) (s *Segment2D) {
 	if len(nodes) == 0 {
 		return nil
 	}
-	s := &Segment2D{Start: values[0], End: values[len(values)-1], Seg: newSegment(nodes)}
+	s = &Segment2D{Start: values[0], End: values[len(values)-1], Seg: newSegment(nodes)}
 	if len(values) == 1 {
-		return s
+		return
 	}
 
 	median := values[(len(values)-1)>>1]
@@ -139,7 +139,7 @@ func Build2D(nodes []*Node, values []float64) *Segment2D {
 	}
 
 	s.Left, s.Right = Build2D(lNodes, lValues), Build2D(rNodes, rValues)
-	return s
+	return
 }
 
 func NewSegment2D(nodes []*Node) *Segment2D {

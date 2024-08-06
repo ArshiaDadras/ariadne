@@ -8,8 +8,7 @@ import (
 	"github.com/ArshiaDadras/Ariadne/pkg"
 )
 
-func parsePoints(pointStr string) []pkg.Point {
-	points := make([]pkg.Point, 0)
+func parsePoints(pointStr string) (points []pkg.Point) {
 	for _, point := range strings.Split(pointStr[11:len(pointStr)-1], ", ") {
 		coordinates := strings.Split(point, " ")
 		longitude, err := strconv.ParseFloat(coordinates[0], 64)
@@ -26,18 +25,18 @@ func parsePoints(pointStr string) []pkg.Point {
 			Latitude:  latitude,
 		})
 	}
-	return points
+	return
 }
 
-func getOrCreateNode(graph *pkg.Graph, nodeID string, point pkg.Point) (*pkg.Node, error) {
-	node, err := graph.GetNode(nodeID)
+func getOrCreateNode(graph *pkg.Graph, nodeID string, point pkg.Point) (node *pkg.Node, err error) {
+	node, err = graph.GetNode(nodeID)
 	if err != nil {
 		node, err = graph.AddNode(nodeID, point)
 		if err != nil {
 			return nil, err
 		}
 	}
-	return node, nil
+	return
 }
 
 func BuildRoadNetwork(graph *pkg.Graph, path string) error {

@@ -57,10 +57,8 @@ func (p *Point) IsOnSegment(a, b Point) bool {
 	return math.Abs(a.Distance(b)-(p.Distance(a)+p.Distance(b))) < Epsilon
 }
 
-func (p *Point) ClosestPointOnEdge(edge *Edge) Point {
+func (p *Point) ClosestPointOnEdge(edge *Edge) (closestPoint Point) {
 	minDistance := math.Inf(1)
-	var closestPoint Point
-
 	for i := 0; i < len(edge.Poly)-1; i++ {
 		closest := p.ClosestPointOnSegment(edge.Poly[i], edge.Poly[i+1])
 		distance := p.Distance(closest)
@@ -70,8 +68,7 @@ func (p *Point) ClosestPointOnEdge(edge *Edge) Point {
 			closestPoint = closest
 		}
 	}
-
-	return closestPoint
+	return
 }
 
 func (p *Point) DistanceToEdge(edge *Edge) float64 {
