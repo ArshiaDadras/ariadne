@@ -37,8 +37,6 @@ for _, row in df_gps.iterrows():
             rows.append((last_index + 1, row))
 
 for index, row in rows:
-    # if index > 80:
-    #     break
     geojson['features'].append({
         'type': 'Feature',
         'properties': {
