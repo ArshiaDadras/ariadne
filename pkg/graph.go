@@ -10,6 +10,10 @@ var (
 	ErrNodeNotReachable = errors.New("node not reachable")
 )
 
+const (
+	AverageSpeed = 50.0
+)
+
 type Node struct {
 	ID       string   `json:"id"`
 	Position Point    `json:"position"`
@@ -18,19 +22,28 @@ type Node struct {
 }
 
 type Edge struct {
-	ID    string  `json:"id"`
-	Start string  `json:"start"`
-	End   string  `json:"end"`
-	Speed float64 `json:"speed"`
-	Poly  []Point `json:"polygon"`
+	ID     string  `json:"id"`
+	Start  string  `json:"start"`
+	End    string  `json:"end"`
+	Speed  float64 `json:"speed"`
+	Poly   []Point `json:"polygon"`
+	Length float64 `json:"length"`
 }
 
-func (e *Edge) Length() float64 {
-	length := 0.0
-	for i := 0; i < len(e.Poly)-1; i++ {
-		length += e.Poly[i].Distance(e.Poly[i+1])
+func NewEdge(id string, start, end *Node, speed float64, poly []Point) *Edge {
+	edge := &Edge{
+		ID:     id,
+		Start:  start.ID,
+		End:    end.ID,
+		Speed:  speed,
+		Poly:   poly,
+		Length: 0,
 	}
-	return length
+
+	for i := 0; i < len(poly)-1; i++ {
+		edge.Length += poly[i].Distance(poly[i+1])
+	}
+	return edge
 }
 
 type Graph struct {
@@ -71,13 +84,7 @@ func (g *Graph) AddEdge(id string, start, end *Node, speed float64, poly []Point
 		return nil, ErrNodeNotFound
 	}
 
-	edge := &Edge{
-		ID:    id,
-		Start: start.ID,
-		End:   end.ID,
-		Speed: speed,
-		Poly:  poly,
-	}
+	edge := NewEdge(id, start, end, speed, poly)
 	g.Edges[id] = edge
 
 	start.OutEdges = append(start.OutEdges, edge.ID)
@@ -130,7 +137,7 @@ type heapNode struct {
 	distance float64
 }
 
-func (g *Graph) Distance(start, end string, maxDuration float64) (float64, error) {
+func (g *Graph) Distance(start, end string, maxDuration float64, considerSpeed bool) (float64, error) {
 	startNode, err := g.GetNode(start)
 	if err != nil {
 		return 0, err
@@ -148,7 +155,7 @@ func (g *Graph) Distance(start, end string, maxDuration float64) (float64, error
 
 	dist[startNode.ID] = 0
 	priorityQueue.Push(heapNode{node: startNode, distance: 0})
-	for priorityQueue.Len() > 0 {
+	for priorityQueue.Length() > 0 {
 		current := priorityQueue.Pop().(heapNode)
 		if current.distance > maxDuration {
 			break
@@ -162,22 +169,56 @@ func (g *Graph) Distance(start, end string, maxDuration float64) (float64, error
 			return current.distance, nil
 		}
 
-		g.processOutEdges(current, priorityQueue, visited, dist)
+		g.updateDistances(current, priorityQueue, visited, dist, considerSpeed)
 	}
 
 	return 0, ErrNodeNotReachable
 }
 
-func (g *Graph) processOutEdges(current heapNode, priorityQueue *Heap, visited map[string]bool, dist map[string]float64) {
+func (g *Graph) updateDistances(current heapNode, priorityQueue *Heap, visited map[string]bool, dist map[string]float64, considerSpeed bool) {
 	for _, edgeID := range current.node.OutEdges {
 		edge := g.Edges[edgeID]
 		neighbour, _ := g.GetNode(edge.End)
 		if !visited[neighbour.ID] {
-			distance := current.distance + edge.Length()/edge.Speed
-			if _, ok := dist[neighbour.ID]; !ok || distance < dist[neighbour.ID] {
+			distance := calculateDistance(current.distance, edge, considerSpeed)
+
+			if current_distance, ok := dist[neighbour.ID]; !ok || distance < current_distance {
 				dist[neighbour.ID] = distance
 				priorityQueue.Push(heapNode{node: neighbour, distance: distance})
 			}
 		}
 	}
+}
+
+func calculateDistance(currentDistance float64, edge *Edge, considerSpeed bool) float64 {
+	distance := currentDistance
+	if considerSpeed {
+		if edge.Speed > 0 {
+			distance += edge.Length / edge.Speed
+		} else {
+			distance += edge.Length / AverageSpeed
+		}
+	} else {
+		distance += edge.Length
+	}
+	return distance
+}
+
+func (e *Edge) LengthTo(point Point) float64 {
+	intersect := point.ClosestPointOnEdge(e)
+
+	length := 0.0
+	for i := 0; i < len(e.Poly)-1; i++ {
+		if intersect.IsOnSegment(e.Poly[i], e.Poly[i+1]) {
+			length += intersect.Distance(e.Poly[i])
+			break
+		}
+		length += e.Poly[i].Distance(e.Poly[i+1])
+	}
+
+	return length
+}
+
+func (e *Edge) LengthFrom(point Point) float64 {
+	return e.Length - e.LengthTo(point)
 }
