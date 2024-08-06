@@ -9,7 +9,7 @@ import (
 
 func main() {
 	graph := pkg.NewGraph()
-	if err := internal.BuildRoadNetwork(graph, "data/road_network.csv"); err != nil {
+	if err := internal.BuildRoadNetwork(graph, "data/road_network.csv", true); err != nil {
 		log.Fatalf("Error building road network: %v", err)
 	}
 	log.Println("Graph created successfully")
@@ -22,6 +22,7 @@ func main() {
 		log.Fatalf("Error parsing GPS data: %v", err)
 	}
 	log.Println("GPS data parsed successfully")
+
 	points = internal.RemoveNearbyPoints(points)
 	log.Println("Nearby points removed successfully")
 

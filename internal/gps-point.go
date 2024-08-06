@@ -26,7 +26,7 @@ func (p *GPSPoint) TimeDifference(other GPSPoint) float64 {
 	return p.Time.Sub(other.Time).Seconds()
 }
 
-func MapMatch(graph *pkg.Graph, points []GPSPoint) ([]pkg.Edge, error) {
+func MapMatch(graph *pkg.Graph, points []GPSPoint) ([]*pkg.Edge, error) {
 	for i := 0; i < len(points)-1; i++ {
 		j := 0
 		for i-j >= 0 && i+j+1 < len(points) && points[i-j].Distance(points[i+j+1]) > MaxGap && points[i-j].TimeDifference(points[i+j+1]) <= MaxBreak {
@@ -50,7 +50,12 @@ func MapMatch(graph *pkg.Graph, points []GPSPoint) ([]pkg.Edge, error) {
 		}
 	}
 
-	return BestMatch(graph, points)
+	match, err := BestMatch(graph, points)
+	if err != nil {
+		return nil, err
+	}
+
+	return match, nil
 }
 
 func RemoveNearbyPoints(points []GPSPoint) (result []GPSPoint) {

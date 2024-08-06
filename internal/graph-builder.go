@@ -2,6 +2,7 @@ package internal
 
 import (
 	"log"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -39,14 +40,27 @@ func getOrCreateNode(graph *pkg.Graph, nodeID string, point pkg.Point) (node *pk
 	return
 }
 
-func BuildRoadNetwork(graph *pkg.Graph, path string) error {
+func BuildRoadNetwork(graph *pkg.Graph, path string, removeDuplicates bool) error {
 	data, err := ParseCSV(path)
 	if err != nil {
 		return err
 	}
 
+	mp := make(map[pkg.Point]string, 0)
 	for _, row := range data {
 		points := parsePoints(row[6])
+		if removeDuplicates {
+			if _, ok := mp[points[0]]; ok {
+				row[1] = mp[points[0]]
+			} else {
+				mp[points[0]] = row[1]
+			}
+			if _, ok := mp[points[len(points)-1]]; ok {
+				row[2] = mp[points[len(points)-1]]
+			} else {
+				mp[points[len(points)-1]] = row[2]
+			}
+		}
 
 		start, err := getOrCreateNode(graph, row[1], points[0])
 		if err != nil {
@@ -62,20 +76,21 @@ func BuildRoadNetwork(graph *pkg.Graph, path string) error {
 		if err != nil {
 			return err
 		}
+		speed *= 1000.0 / 3600.0
+
 		_, err = graph.AddEdge(row[0], start, end, speed, points)
 		if err != nil {
 			return err
 		}
 
 		if row[3] == "1" {
+			slices.Reverse(points)
 			_, err = graph.AddEdge(row[0]+"_reverse", end, start, speed, points)
 			if err != nil {
 				return err
 			}
 		}
 	}
-
-	graph.Preprocess()
 
 	return nil
 }
