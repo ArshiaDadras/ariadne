@@ -12,7 +12,7 @@ geojson = {
     'type': 'FeatureCollection',
     'features': []
 }
-for _, row in df_route.iterrows():
+for index, row in df_route.iterrows():
     line = []
     for location in df_roads.loc[row['Edge ID'] == df_roads['Edge ID']]['LINESTRING()'].values[0].replace('LINESTRING(', '').replace(')', '').split(', '):
         lon, lat = map(float, location.split())
@@ -21,7 +21,7 @@ for _, row in df_route.iterrows():
     geojson['features'].append({
         'type': 'Feature',
         'properties': {
-            'stroke': '#FF0000',
+            'stroke': '#FF0000' if index % 2 else '#0000FF',
             'Edge ID': str(row['Edge ID']),
             'Traverse Direction': 'Forward' if row['Traversed From to To'] == 1 else 'Backward'
         },
