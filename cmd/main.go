@@ -22,6 +22,8 @@ func main() {
 		log.Fatalf("Error parsing GPS data: %v", err)
 	}
 	log.Println("GPS data parsed successfully")
+	points = internal.RemoveNearbyPoints(points)
+	log.Println("Nearby points removed successfully")
 
 	edges, err := internal.MapMatch(graph, points)
 	if err != nil {

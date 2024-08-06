@@ -7,9 +7,10 @@ import (
 )
 
 const (
-	TimeFormat = "2006-01-02 15:04:05"
+	TimeFormat = "02-Jan-2006 15:04:05"
 	MaxGap     = 1000
 	MaxBreak   = 180
+	MaxNearby  = 2 * Sigma
 )
 
 type GPSPoint struct {
@@ -50,4 +51,13 @@ func MapMatch(graph *pkg.Graph, points []GPSPoint) ([]pkg.Edge, error) {
 	}
 
 	return BestMatch(graph, points)
+}
+
+func RemoveNearbyPoints(points []GPSPoint) (result []GPSPoint) {
+	for i := 0; i < len(points); i++ {
+		if i == 0 || points[i].Distance(points[i-1]) >= MaxNearby {
+			result = append(result, points[i])
+		}
+	}
+	return
 }
