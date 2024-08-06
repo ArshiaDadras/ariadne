@@ -157,3 +157,8 @@ func NewSegment2D(nodes []*Node) *Segment2D {
 	}
 	return Build2D(sortedNodes, values)
 }
+
+func (s *Segment2D) Get(point Point, distance float64) []*Node {
+	buttomLeft, topRight := point.Move(-distance, -distance), point.Move(distance, distance)
+	return s.GetInterval(buttomLeft.Longitude, topRight.Longitude, buttomLeft.Latitude, topRight.Latitude)
+}
