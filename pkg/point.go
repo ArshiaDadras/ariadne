@@ -6,6 +6,7 @@ import (
 
 const (
 	EarthRadius = 6378137
+	Epsilon     = 1e-9
 )
 
 type Point struct {
@@ -52,7 +53,11 @@ func (p *Point) ClosestPointOnSegment(a, b Point) Point {
 	}
 }
 
-func (p *Point) ClosestPointOnEdge(edge Edge) Point {
+func (p *Point) IsOnSegment(a, b Point) bool {
+	return math.Abs(a.Distance(b)-(p.Distance(a)+p.Distance(b))) < Epsilon
+}
+
+func (p *Point) ClosestPointOnEdge(edge *Edge) Point {
 	minDistance := math.Inf(1)
 	var closestPoint Point
 
@@ -67,4 +72,8 @@ func (p *Point) ClosestPointOnEdge(edge Edge) Point {
 	}
 
 	return closestPoint
+}
+
+func (p *Point) DistanceToEdge(edge *Edge) float64 {
+	return p.Distance(p.ClosestPointOnEdge(edge))
 }
