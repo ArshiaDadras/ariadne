@@ -1,6 +1,8 @@
 package pkg
 
-import "errors"
+import (
+	"errors"
+)
 
 var (
 	ErrNodeExists       = errors.New("node already exists")
@@ -10,15 +12,20 @@ var (
 	ErrNodeNotReachable = errors.New("node not reachable")
 )
 
-const (
-	AverageSpeed = 50.0
-)
+type dijkstraData struct {
+	MaxDuration float64
+	Distances   map[*Node]float64
+	Parents     map[*Node]*Node
+	Visited     map[*Node]bool
+	Queue       *Heap
+}
 
 type Node struct {
-	ID       string   `json:"id"`
-	Position Point    `json:"position"`
-	InEdges  []string `json:"in_edges"`
-	OutEdges []string `json:"out_edges"`
+	ID       string                 `json:"id"`
+	Position Point                  `json:"position"`
+	InEdges  map[string]string      `json:"in_edges"`
+	OutEdges map[string]string      `json:"out_edges"`
+	Data     map[bool]*dijkstraData `json:"-"`
 }
 
 type Edge struct {
@@ -40,10 +47,28 @@ func NewEdge(id string, start, end *Node, speed float64, poly []Point) (edge *Ed
 		Length: 0,
 	}
 
-	for i := 0; i < len(poly)-1; i++ {
-		edge.Length += poly[i].Distance(poly[i+1])
+	for i := 1; i < len(poly); i++ {
+		edge.Length += poly[i].Distance(poly[i-1])
 	}
 	return
+}
+
+func (e *Edge) LengthTo(point Point) (length float64) {
+	intersect := point.ClosestPointOnEdge(e)
+
+	for i := 0; i < len(e.Poly)-1; i++ {
+		if intersect.IsOnSegment(e.Poly[i], e.Poly[i+1]) {
+			length += intersect.Distance(e.Poly[i])
+			break
+		}
+		length += e.Poly[i].Distance(e.Poly[i+1])
+	}
+
+	return length
+}
+
+func (e *Edge) LengthFrom(point Point) float64 {
+	return e.Length - e.LengthTo(point)
 }
 
 type Graph struct {
@@ -68,6 +93,9 @@ func (g *Graph) AddNode(id string, position Point) (*Node, error) {
 	g.Nodes[id] = &Node{
 		ID:       id,
 		Position: position,
+		InEdges:  make(map[string]string),
+		OutEdges: make(map[string]string),
+		Data:     make(map[bool]*dijkstraData),
 	}
 
 	return g.Nodes[id], nil
@@ -87,8 +115,8 @@ func (g *Graph) AddEdge(id string, start, end *Node, speed float64, poly []Point
 	edge := NewEdge(id, start, end, speed, poly)
 	g.Edges[id] = edge
 
-	start.OutEdges = append(start.OutEdges, edge.ID)
-	end.InEdges = append(end.InEdges, edge.ID)
+	start.OutEdges[end.ID] = id
+	end.InEdges[start.ID] = id
 	return edge, nil
 }
 
@@ -117,8 +145,7 @@ func (g *Graph) Preprocess() {
 }
 
 func (g *Graph) GetSquare(point Point, distance float64) []*Node {
-	buttomLeft, topRight := point.Move(-distance, -distance), point.Move(distance, distance)
-	return g.Seg.GetInterval(buttomLeft.Latitude, topRight.Longitude, buttomLeft.Latitude, topRight.Latitude)
+	return g.Seg.Get(point, distance)
 }
 
 func (g *Graph) GetCircle(point Point, distance float64) (result []*Node) {
@@ -131,92 +158,101 @@ func (g *Graph) GetCircle(point Point, distance float64) (result []*Node) {
 	return
 }
 
-type heapNode struct {
-	node     *Node
-	distance float64
+func (g *Graph) getData(node *Node, maxDuration float64, reverse bool) *dijkstraData {
+	if data, ok := node.Data[reverse]; !ok {
+		g.dijkstra(node, maxDuration, reverse)
+	} else if data.MaxDuration < maxDuration {
+		g.dijkstra(node, maxDuration, reverse)
+	}
+	return node.Data[reverse]
 }
 
-func (g *Graph) Distance(start, end string, maxDuration float64, considerSpeed bool) (float64, error) {
-	startNode, err := g.GetNode(start)
-	if err != nil {
-		return -1, err
-	}
-
-	priorityQueue := NewHeap(func(i, j interface{}) bool {
-		if i.(heapNode).distance == j.(heapNode).distance {
-			return i.(heapNode).node.ID < j.(heapNode).node.ID
-		} else {
-			return i.(heapNode).distance < j.(heapNode).distance
-		}
-	})
-	visited := make(map[string]bool)
-	dist := make(map[string]float64)
-
-	dist[startNode.ID] = 0
-	priorityQueue.Push(heapNode{node: startNode, distance: 0})
-	for priorityQueue.Length() > 0 {
-		current := priorityQueue.Pop().(heapNode)
-		if current.distance > maxDuration {
-			break
-		}
-		if visited[current.node.ID] {
-			continue
-		}
-		visited[current.node.ID] = true
-
-		if current.node.ID == end {
-			return current.distance, nil
-		}
-
-		g.updateDistances(current, priorityQueue, visited, dist, considerSpeed)
+func (g *Graph) GetDistance(start, end *Node, maxDuration float64, reverse bool) (float64, error) {
+	data := g.getData(start, maxDuration, reverse)
+	if distance, ok := data.Distances[end]; ok {
+		return distance, nil
 	}
 
 	return -1, ErrNodeNotReachable
 }
 
-func (g *Graph) updateDistances(current heapNode, priorityQueue *Heap, visited map[string]bool, dist map[string]float64, considerSpeed bool) {
-	for _, edgeID := range current.node.OutEdges {
-		edge := g.Edges[edgeID]
-		neighbour, _ := g.GetNode(edge.End)
-		if !visited[neighbour.ID] {
-			distance := calculateDistance(current.distance, edge, considerSpeed)
+func (g *Graph) GetBestPath(start, end *Node, maxDuration float64, reverse bool) ([]*Edge, error) {
+	data := g.getData(start, maxDuration, reverse)
+	if _, ok := data.Distances[end]; !ok {
+		return nil, ErrNodeNotReachable
+	}
 
-			if current_distance, ok := dist[neighbour.ID]; !ok || distance < current_distance {
-				dist[neighbour.ID] = distance
+	path := make([]*Edge, 0)
+	for current := end; current != start; current = data.Parents[current] {
+		path = append(path, g.Edges[current.InEdges[data.Parents[current].ID]])
+	}
+
+	return path, nil
+}
+
+type heapNode struct {
+	node     *Node
+	distance float64
+}
+
+func (g *Graph) dijkstra(start *Node, maxDuration float64, reverse bool) {
+	if data, ok := start.Data[reverse]; !ok {
+		start.Data[reverse] = &dijkstraData{
+			MaxDuration: maxDuration,
+			Distances:   make(map[*Node]float64),
+			Parents:     make(map[*Node]*Node),
+			Visited:     make(map[*Node]bool),
+			Queue: NewHeap(func(i, j interface{}) bool {
+				if i.(heapNode).distance == j.(heapNode).distance {
+					return i.(heapNode).node.ID < j.(heapNode).node.ID
+				} else {
+					return i.(heapNode).distance < j.(heapNode).distance
+				}
+			}),
+		}
+
+		start.Data[reverse].Distances[start] = 0
+		start.Data[reverse].Queue.Push(heapNode{node: start, distance: 0})
+	} else if data.MaxDuration < maxDuration {
+		data.MaxDuration = maxDuration
+	} else {
+		return
+	}
+
+	priorityQueue := start.Data[reverse].Queue
+	visited := start.Data[reverse].Visited
+	dist := start.Data[reverse].Distances
+	par := start.Data[reverse].Parents
+
+	for priorityQueue.Length() > 0 {
+		current := priorityQueue.Pop().(heapNode)
+		if maxDuration > 0 && current.distance > maxDuration {
+			break
+		}
+		if visited[current.node] {
+			continue
+		}
+		visited[current.node] = true
+
+		g.updateDistances(current, priorityQueue, visited, dist, par, reverse)
+	}
+}
+
+func (g *Graph) updateDistances(current heapNode, priorityQueue *Heap, visited map[*Node]bool, dist map[*Node]float64, par map[*Node]*Node, reverse bool) {
+	edges := current.node.OutEdges
+	if reverse {
+		edges = current.node.InEdges
+	}
+
+	for neighbourID, edgeID := range edges {
+		edge := g.Edges[edgeID]
+		neighbour := g.Nodes[neighbourID]
+		if !visited[neighbour] {
+			distance := current.distance + edge.Length
+			if current_distance, ok := dist[neighbour]; !ok || distance < current_distance {
+				dist[neighbour], par[neighbour] = distance, current.node
 				priorityQueue.Push(heapNode{node: neighbour, distance: distance})
 			}
 		}
 	}
-}
-
-func calculateDistance(currentDistance float64, edge *Edge, considerSpeed bool) (distance float64) {
-	distance = currentDistance
-	if considerSpeed {
-		if edge.Speed > 0 {
-			distance += edge.Length / edge.Speed
-		} else {
-			distance += edge.Length / AverageSpeed
-		}
-	} else {
-		distance += edge.Length
-	}
-	return
-}
-
-func (e *Edge) LengthTo(point Point) (length float64) {
-	intersect := point.ClosestPointOnEdge(e)
-
-	for i := 0; i < len(e.Poly)-1; i++ {
-		if intersect.IsOnSegment(e.Poly[i], e.Poly[i+1]) {
-			length += intersect.Distance(e.Poly[i])
-			break
-		}
-		length += e.Poly[i].Distance(e.Poly[i+1])
-	}
-
-	return length
-}
-
-func (e *Edge) LengthFrom(point Point) float64 {
-	return e.Length - e.LengthTo(point)
 }
