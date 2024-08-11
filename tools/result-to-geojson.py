@@ -18,8 +18,8 @@ for index, edge in enumerate(data):
     geojson['features'].append({
         "type": "Feature",
         "properties": {
-            'ID': edge['id'],
-            # 'stroke': '#FF0000' if index % 2 else '#0000FF',
+            'ID': edge['id'].split('_')[0],
+            'Reverse': edge['id'].endswith('_reverse')
         },
         "geometry": {
             "type": "LineString",
