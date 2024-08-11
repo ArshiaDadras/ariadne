@@ -55,13 +55,12 @@ func NewEdge(id string, start, end *Node, speed float64, poly []Point) (edge *Ed
 
 func (e *Edge) LengthTo(point Point) (length float64) {
 	intersect := point.ClosestPointOnEdge(e)
-
-	for i := 0; i < len(e.Poly)-1; i++ {
-		if intersect.IsOnSegment(e.Poly[i], e.Poly[i+1]) {
-			length += intersect.Distance(e.Poly[i])
+	for i := 1; i < len(e.Poly); i++ {
+		if intersect.IsOnSegment(e.Poly[i-1], e.Poly[i]) {
+			length += intersect.Distance(e.Poly[i-1])
 			break
 		}
-		length += e.Poly[i].Distance(e.Poly[i+1])
+		length += e.Poly[i-1].Distance(e.Poly[i])
 	}
 	return
 }
