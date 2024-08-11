@@ -4,7 +4,7 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"os"
-	"sort"
+	"slices"
 	"strconv"
 	"time"
 
@@ -73,8 +73,13 @@ func ParseGPSData(path string) ([]GPSPoint, error) {
 		})
 	}
 
-	sort.Slice(points, func(i, j int) bool {
-		return points[i].Time.Before(points[j].Time)
+	slices.SortFunc(points, func(a, b GPSPoint) int {
+		if a.Time.Before(b.Time) {
+			return -1
+		} else if a.Time.After(b.Time) {
+			return 1
+		}
+		return 0
 	})
 
 	return points, nil
