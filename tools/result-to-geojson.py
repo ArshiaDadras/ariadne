@@ -15,7 +15,6 @@ geojson = {
 }
 
 for index, edge in enumerate(data):
-    print(index)
     geojson['features'].append({
         "type": "Feature",
         "properties": {
