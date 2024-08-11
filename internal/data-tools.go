@@ -11,6 +11,10 @@ import (
 	"github.com/ArshiaDadras/Ariadne/pkg"
 )
 
+const (
+	TimeFormat = "02-Jan-2006 15:04:05"
+)
+
 func SaveObject(obj interface{}, path string) error {
 	file, err := os.Create(path)
 	if err != nil {

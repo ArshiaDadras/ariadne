@@ -14,9 +14,6 @@ func main() {
 	}
 	log.Println("Graph created successfully")
 
-	internal.Preprocess(graph)
-	log.Println("Graph preprocessed successfully")
-
 	points, err := internal.ParseGPSData("data/gps_data.csv")
 	if err != nil {
 		log.Fatalf("Error parsing GPS data: %v", err)
@@ -25,6 +22,9 @@ func main() {
 
 	points = internal.RemoveNearbyPoints(points)
 	log.Println("Nearby points removed successfully")
+
+	internal.Preprocess(graph)
+	log.Println("Graph preprocessed successfully")
 
 	edges, err := internal.MapMatch(graph, points)
 	if err != nil {

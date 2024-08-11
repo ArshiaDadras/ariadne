@@ -1,16 +1,14 @@
 package internal
 
 import (
+	"slices"
 	"time"
 
 	"github.com/ArshiaDadras/Ariadne/pkg"
 )
 
 const (
-	TimeFormat = "02-Jan-2006 15:04:05"
-	MaxGap     = MaxCandidateDistance / 2
-	MaxBreak   = 180
-	MaxNearby  = 2 * Sigma
+	MaxNearby = 2 * Sigma
 )
 
 type GPSPoint struct {
@@ -26,35 +24,10 @@ func (p *GPSPoint) TimeDifference(other GPSPoint) float64 {
 	return p.Time.Sub(other.Time).Seconds()
 }
 
-func MapMatch(graph *pkg.Graph, points []GPSPoint) ([]*pkg.Edge, error) {
-	for i := 0; i < len(points)-1; i++ {
-		j := 0
-		for i-j >= 0 && i+j+1 < len(points) && points[i-j].Distance(points[i+j+1]) > MaxGap && points[i-j].TimeDifference(points[i+j+1]) <= MaxBreak {
-			j++
-		}
-
-		if i-j < 0 || i+j+1 >= len(points) || points[i-j].TimeDifference(points[i+j+1]) > MaxBreak {
-			match1, err := MapMatch(graph, points[:i])
-			if err != nil {
-				return nil, err
-			}
-
-			match2, err := MapMatch(graph, points[i+1:])
-			if err != nil {
-				return nil, err
-			}
-			return append(match1, match2...), nil
-		} else if j > 0 {
-			points = append(points[:i-j], points[i+j+1:]...)
-		}
-	}
-
-	match, err := BestMatch(graph, points)
-	if err != nil {
-		return nil, err
-	}
-
-	return match, nil
+func MapMatch(graph *pkg.Graph, points []GPSPoint) (match []*pkg.Edge, err error) {
+	match, err = BestMatch(graph, points)
+	slices.Reverse(match)
+	return
 }
 
 func RemoveNearbyPoints(points []GPSPoint) (result []GPSPoint) {

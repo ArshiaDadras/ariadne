@@ -9,9 +9,10 @@ import (
 )
 
 const (
-	Sigma                = 5.0
-	Beta                 = 10.0
+	Sigma                = 4.07
+	Beta                 = 1.3
 	MaxDiffDistance      = 2000.0
+	MaxBreak             = 180
 	MaxCandidates        = 10
 	MaxCandidateDistance = 200.0
 	CandidateDistance    = 1.4142135624 * MaxCandidateDistance
@@ -31,7 +32,17 @@ func BestMatch(graph *pkg.Graph, points []GPSPoint) ([]*pkg.Edge, error) {
 
 	for i := 1; i < len(points); i++ {
 		if len(dp[i-1]) == 0 {
-			return nil, ErrNoPathFound
+			if i == 1 {
+				return BestMatch(graph, points[1:])
+			} else {
+				dp, par = append(dp[:i-1], dp[i+1:]...), append(par[:i-1], par[i+1:]...)
+				points = append(points[:i-1], points[i+1:]...)
+				i--
+
+				if points[i].TimeDifference(points[i-1]) > MaxBreak {
+					return splitPath(graph, points, dp, par, i)
+				}
+			}
 		}
 		normalizeValues(dp[i-1])
 
@@ -40,6 +51,18 @@ func BestMatch(graph *pkg.Graph, points []GPSPoint) ([]*pkg.Edge, error) {
 	}
 
 	return bestPath(graph, points, dp, par)
+}
+
+func splitPath(graph *pkg.Graph, points []GPSPoint, dp []map[*pkg.Edge]float64, par []map[*pkg.Edge]*pkg.Edge, i int) ([]*pkg.Edge, error) {
+	path1, err := bestPath(graph, points[:i], dp[:i], par[:i])
+	if err != nil {
+		return nil, err
+	}
+	path2, err := BestMatch(graph, points[i:])
+	if err != nil {
+		return nil, err
+	}
+	return append(path2, path1...), nil
 }
 
 func initializeDPAndPar(n int) ([]map[*pkg.Edge]float64, []map[*pkg.Edge]*pkg.Edge) {
@@ -94,6 +117,10 @@ func bestPath(graph *pkg.Graph, points []GPSPoint, dp []map[*pkg.Edge]float64, p
 		}
 		edge = par[i][edge]
 	}
+
+	if len(result) == 0 || result[len(result)-1].ID != edge.ID {
+		result = append(result, edge)
+	}
 	return result, nil
 }
 
@@ -122,15 +149,14 @@ func viterbi(graph *pkg.Graph, points []GPSPoint, dp []map[*pkg.Edge]float64, pa
 }
 
 func roadDistance(graph *pkg.Graph, prev, candidate *pkg.Edge, prevPoint, candidatePoint GPSPoint) (float64, error) {
-	if prev.ID == candidate.ID {
-		p1, p2 := prevPoint.Location.ClosestPointOnEdge(candidate), candidatePoint.Location.ClosestPointOnEdge(candidate)
-		return candidate.LengthFrom(p1) - candidate.LengthFrom(p2), nil
+	if prev == candidate {
+		return prev.LengthFrom(prevPoint.Location) - candidate.LengthFrom(candidatePoint.Location), nil
 	}
 	d, err := graph.GetDistance(graph.Nodes[candidate.Start], graph.Nodes[prev.End], prevPoint.Location.Distance(candidatePoint.Location)+MaxDiffDistance, true)
 	if err != nil {
 		return 0, err
 	}
-	return d + prev.LengthFrom(prevPoint.Location.ClosestPointOnEdge(prev)) + candidate.LengthTo(candidatePoint.Location.ClosestPointOnEdge(candidate)), nil
+	return d + prev.LengthFrom(prevPoint.Location) + candidate.LengthTo(candidatePoint.Location), nil
 }
 
 func filterCandidates(values map[*pkg.Edge]float64) {
