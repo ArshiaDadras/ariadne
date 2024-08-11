@@ -2,6 +2,7 @@ import sys
 import math
 import json
 
+
 def dist(lon1, lat1, lon2, lat2):
     lat1 = lat1 * math.pi / 180
     lon1 = lon1 * math.pi / 180
@@ -79,6 +80,7 @@ def rect(lon, lat, d):
         cur += radius
 
     return upper_polygon + lower_polygon
+
 
 if len(sys.argv) < 4:
     print("Usage: python d-poly.py lon lat d [radius]")

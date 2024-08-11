@@ -1,6 +1,7 @@
 import pandas as pd
 import json
 
+
 try:
     df = pd.read_csv('data/gps_data.csv', sep='\t')
 except Exception as e:

@@ -1,5 +1,6 @@
 import json
 
+
 try:
     f = open('data/nodes.json')
     nodes = json.load(f)
