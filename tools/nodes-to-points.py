@@ -18,8 +18,6 @@ for node in nodes:
     geojson['features'].append({
         'type': 'Feature',
         'properties': {
-            # 'marker-color': '#FF0000',
-            # 'marker-color': '#0000FF',
             'marker-color': '#00FF00',
             'marker-size': 'small',
             'marker-symbol': 'circle',
