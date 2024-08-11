@@ -14,7 +14,7 @@ func main() {
 	}
 	log.Println("Graph created successfully")
 
-	graph.Preprocess()
+	internal.Preprocess(graph)
 	log.Println("Graph preprocessed successfully")
 
 	points, err := internal.ParseGPSData("data/gps_data.csv")
