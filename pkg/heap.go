@@ -23,7 +23,6 @@ func (h *Heap) Pop() interface{} {
 	if len(h.Objects) == 1 {
 		return nil
 	}
-
 	return h.down(1)
 }
 
@@ -31,7 +30,6 @@ func (h *Heap) Peek() interface{} {
 	if len(h.Objects) == 1 {
 		return nil
 	}
-
 	return h.Objects[1]
 }
 
@@ -56,6 +54,5 @@ func (h *Heap) down(i int) (obj interface{}) {
 		h.Objects[i], h.Objects[j] = h.Objects[j], h.Objects[i]
 		i = j
 	}
-
 	return
 }
