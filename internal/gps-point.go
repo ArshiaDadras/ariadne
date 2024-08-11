@@ -8,7 +8,7 @@ import (
 
 const (
 	TimeFormat = "02-Jan-2006 15:04:05"
-	MaxGap     = 1000
+	MaxGap     = MaxCandidateDistance / 2
 	MaxBreak   = 180
 	MaxNearby  = 2 * Sigma
 )
@@ -43,7 +43,6 @@ func MapMatch(graph *pkg.Graph, points []GPSPoint) ([]*pkg.Edge, error) {
 			if err != nil {
 				return nil, err
 			}
-
 			return append(match1, match2...), nil
 		} else if j > 0 {
 			points = append(points[:i-j], points[i+j+1:]...)
