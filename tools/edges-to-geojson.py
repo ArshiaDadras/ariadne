@@ -27,5 +27,5 @@ for index, edge in enumerate(data):
         }
     })
 
-with open("data/result.geojson", "w") as f:
+with open("data/edges.geojson", "w") as f:
     json.dump(geojson, f, indent=2)
