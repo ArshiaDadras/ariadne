@@ -105,3 +105,28 @@ func BuildRoadNetwork(graph *pkg.Graph, path string, removeDuplicates bool) erro
 
 	return nil
 }
+
+func Preprocess(graph *pkg.Graph) {
+	maxLength := 2 * MaxCandidateDistance
+	segmentNodes := make([]*pkg.SegmentNode, 0)
+	for _, edge := range graph.Edges {
+		for i := 1; i < len(edge.Poly); i++ {
+			for start, end := edge.Poly[i-1], edge.Poly[i]; start.Distance(end) > maxLength; {
+				start = start.MoveTowards(end, maxLength)
+				segmentNodes = append(segmentNodes, &pkg.SegmentNode{
+					Point: start,
+					Edge:  edge,
+				})
+			}
+		}
+
+		for _, point := range edge.Poly {
+			segmentNodes = append(segmentNodes, &pkg.SegmentNode{
+				Point: point,
+				Edge:  edge,
+			})
+		}
+	}
+
+	graph.Seg = pkg.NewSegment2D(segmentNodes)
+}
