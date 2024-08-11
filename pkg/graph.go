@@ -23,8 +23,8 @@ type dijkstraData struct {
 type Node struct {
 	ID       string                 `json:"id"`
 	Position Point                  `json:"position"`
-	InEdges  map[string]string      `json:"in_edges"`
-	OutEdges map[string]string      `json:"out_edges"`
+	InEdges  map[*Node]*Edge        `json:"-"`
+	OutEdges map[*Node]*Edge        `json:"-"`
 	Data     map[bool]*dijkstraData `json:"-"`
 }
 
@@ -63,8 +63,7 @@ func (e *Edge) LengthTo(point Point) (length float64) {
 		}
 		length += e.Poly[i].Distance(e.Poly[i+1])
 	}
-
-	return length
+	return
 }
 
 func (e *Edge) LengthFrom(point Point) float64 {
@@ -93,11 +92,10 @@ func (g *Graph) AddNode(id string, position Point) (*Node, error) {
 	g.Nodes[id] = &Node{
 		ID:       id,
 		Position: position,
-		InEdges:  make(map[string]string),
-		OutEdges: make(map[string]string),
+		InEdges:  make(map[*Node]*Edge),
+		OutEdges: make(map[*Node]*Edge),
 		Data:     make(map[bool]*dijkstraData),
 	}
-
 	return g.Nodes[id], nil
 }
 
@@ -115,8 +113,8 @@ func (g *Graph) AddEdge(id string, start, end *Node, speed float64, poly []Point
 	edge := NewEdge(id, start, end, speed, poly)
 	g.Edges[id] = edge
 
-	start.OutEdges[end.ID] = id
-	end.InEdges[start.ID] = id
+	start.OutEdges[end] = edge
+	end.InEdges[start] = edge
 	return edge, nil
 }
 
@@ -136,28 +134,6 @@ func (g *Graph) GetEdge(id string) (*Edge, error) {
 	return edge, nil
 }
 
-func (g *Graph) Preprocess() {
-	nodes := make([]*Node, 0, len(g.Nodes))
-	for _, node := range g.Nodes {
-		nodes = append(nodes, node)
-	}
-	g.Seg = NewSegment2D(nodes)
-}
-
-func (g *Graph) GetSquare(point Point, distance float64) []*Node {
-	return g.Seg.Get(point, distance)
-}
-
-func (g *Graph) GetCircle(point Point, distance float64) (result []*Node) {
-	candidates := g.GetSquare(point, distance)
-	for _, node := range candidates {
-		if node.Position.Distance(point) <= distance {
-			result = append(result, node)
-		}
-	}
-	return
-}
-
 func (g *Graph) getData(node *Node, maxDuration float64, reverse bool) *dijkstraData {
 	if data, ok := node.Data[reverse]; !ok {
 		g.dijkstra(node, maxDuration, reverse)
@@ -172,7 +148,6 @@ func (g *Graph) GetDistance(start, end *Node, maxDuration float64, reverse bool)
 	if distance, ok := data.Distances[end]; ok {
 		return distance, nil
 	}
-
 	return -1, ErrNodeNotReachable
 }
 
@@ -184,9 +159,12 @@ func (g *Graph) GetBestPath(start, end *Node, maxDuration float64, reverse bool)
 
 	path := make([]*Edge, 0)
 	for current := end; current != start; current = data.Parents[current] {
-		path = append(path, g.Edges[current.InEdges[data.Parents[current].ID]])
+		if reverse {
+			path = append(path, current.OutEdges[data.Parents[current]])
+		} else {
+			path = append(path, current.InEdges[data.Parents[current]])
+		}
 	}
-
 	return path, nil
 }
 
@@ -244,9 +222,7 @@ func (g *Graph) updateDistances(current heapNode, priorityQueue *Heap, visited m
 		edges = current.node.InEdges
 	}
 
-	for neighbourID, edgeID := range edges {
-		edge := g.Edges[edgeID]
-		neighbour := g.Nodes[neighbourID]
+	for neighbour, edge := range edges {
 		if !visited[neighbour] {
 			distance := current.distance + edge.Length
 			if current_distance, ok := dist[neighbour]; !ok || distance < current_distance {
