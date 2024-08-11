@@ -1,84 +1,102 @@
 package pkg
 
 import (
+	"cmp"
+	"slices"
 	"sort"
 )
 
 type segment struct {
-	Start float64
-	End   float64
-	Nodes []*Node
-	Left  *segment
-	Right *segment
+	Start  float64
+	End    float64
+	Left   *segment
+	Right  *segment
+	Values []*Edge
 }
 
-func (s *segment) getInterval(l, r float64) []*Node {
+type SegmentNode struct {
+	Point Point
+	Edge  *Edge
+}
+
+func uniqueEdges(nodes []*SegmentNode) (edges []*Edge) {
+	visited := make(map[*Edge]bool)
+	for _, node := range nodes {
+		if _, ok := visited[node.Edge]; !ok {
+			visited[node.Edge] = true
+			edges = append(edges, node.Edge)
+		}
+	}
+	return
+}
+
+func merge(A, B []*Edge) (merged []*Edge) {
+	for i, j := 0, 0; i < len(A) || j < len(B); {
+		if j == len(B) || (i < len(A) && A[i].ID < B[j].ID) {
+			if len(merged) == 0 || merged[len(merged)-1] != A[i] {
+				merged = append(merged, A[i])
+			}
+			i++
+		} else {
+			if len(merged) == 0 || merged[len(merged)-1] != B[j] {
+				merged = append(merged, B[j])
+			}
+			j++
+		}
+	}
+	return
+}
+
+func (s *segment) getInterval(l, r float64) []*Edge {
 	if r < s.Start || l > s.End {
 		return nil
 	}
 	if l <= s.Start && r >= s.End {
-		return s.Nodes
+		return s.Values
 	}
 
-	left := s.Left.getInterval(l, r)
-	right := s.Right.getInterval(l, r)
+	left, right := s.Left.getInterval(l, r), s.Right.getInterval(l, r)
 	if left == nil {
 		return right
-	}
-	if right == nil {
+	} else if right == nil {
 		return left
 	}
-
-	if len(left) < len(right) {
-		left, right = right, left
-	}
-	return append(left, right...)
+	return merge(left, right)
 }
 
-func build(nodes []*Node, values []float64) (s *segment) {
-	if len(nodes) == 0 {
-		return nil
-	}
-	s = &segment{Nodes: nodes, Start: values[0], End: values[len(values)-1]}
-	if len(values) == 1 {
-		return
-	}
-
-	median := values[(len(values)-1)>>1]
-	lNodes, rNodes := make([]*Node, 0), make([]*Node, 0)
-	lValues, rValues := make([]float64, 0), make([]float64, 0)
-	for _, node := range nodes {
-		if node.Position.Latitude <= median {
-			lNodes = append(lNodes, node)
-			if len(lValues) == 0 || lValues[len(lValues)-1] != node.Position.Latitude {
-				lValues = append(lValues, node.Position.Latitude)
-			}
-		} else {
-			rNodes = append(rNodes, node)
-			if len(rValues) == 0 || rValues[len(rValues)-1] != node.Position.Latitude {
-				rValues = append(rValues, node.Position.Latitude)
-			}
-		}
+func build(sortedNodes []*SegmentNode, values []float64) (s *segment) {
+	left, right := (*segment)(nil), (*segment)(nil)
+	if len(values) > 1 {
+		middle := len(values) >> 1
+		lValues, rValues := values[:middle], values[middle:]
+		middleIndex := sort.Search(len(sortedNodes), func(i int) bool {
+			return sortedNodes[i].Point.Latitude >= values[middle]
+		})
+		lNodes, rNodes := sortedNodes[:middleIndex], sortedNodes[middleIndex:]
+		left, right = build(lNodes, lValues), build(rNodes, rValues)
 	}
 
-	s.Left, s.Right = build(lNodes, lValues), build(rNodes, rValues)
+	s = &segment{
+		Start:  values[0],
+		End:    values[len(values)-1],
+		Values: uniqueEdges(sortedNodes),
+		Left:   left,
+		Right:  right,
+	}
 	return
 }
 
-func newSegment(nodes []*Node) *segment {
-	sortedNodes := make([]*Node, len(nodes))
+func newSegment(nodes []*SegmentNode) *segment {
 	values := make([]float64, 0)
-	copy(sortedNodes, nodes)
-
-	sort.Slice(sortedNodes, func(i, j int) bool {
-		return sortedNodes[i].Position.Latitude < sortedNodes[j].Position.Latitude
+	slices.SortFunc(nodes, func(a, b *SegmentNode) int {
+		return cmp.Compare(a.Point.Latitude, b.Point.Latitude)
 	})
-	for _, node := range sortedNodes {
-		if len(values) == 0 || values[len(values)-1] != node.Position.Latitude {
-			values = append(values, node.Position.Latitude)
+	for _, node := range nodes {
+		if len(values) == 0 || values[len(values)-1] != node.Point.Latitude {
+			values = append(values, node.Point.Latitude)
 		}
 	}
-	return build(sortedNodes, values)
+	return build(nodes, values)
 }
 
 type Segment2D struct {
@@ -89,7 +107,7 @@ type Segment2D struct {
 	Right *Segment2D
 }
 
-func (s *Segment2D) GetInterval(l1, r1, l2, r2 float64) []*Node {
+func (s *Segment2D) GetInterval(l1, r1, l2, r2 float64) []*Edge {
 	if r1 < s.Start || l1 > s.End {
 		return nil
 	}
@@ -97,68 +115,53 @@ func (s *Segment2D) GetInterval(l1, r1, l2, r2 float64) []*Node {
 		return s.Seg.getInterval(l2, r2)
 	}
 
-	left := s.Left.GetInterval(l1, r1, l2, r2)
-	right := s.Right.GetInterval(l1, r1, l2, r2)
+	left, right := s.Left.GetInterval(l1, r1, l2, r2), s.Right.GetInterval(l1, r1, l2, r2)
 	if left == nil {
 		return right
-	}
-	if right == nil {
+	} else if right == nil {
 		return left
 	}
-
-	if len(left) < len(right) {
-		left, right = right, left
-	}
-	return append(left, right...)
+	return merge(left, right)
 }
 
-func Build2D(nodes []*Node, values []float64) (s *Segment2D) {
-	if len(nodes) == 0 {
-		return nil
-	}
-	s = &Segment2D{Start: values[0], End: values[len(values)-1], Seg: newSegment(nodes)}
-	if len(values) == 1 {
-		return
-	}
-
-	median := values[(len(values)-1)>>1]
-	lNodes, rNodes := make([]*Node, 0), make([]*Node, 0)
-	lValues, rValues := make([]float64, 0), make([]float64, 0)
-	for _, node := range nodes {
-		if node.Position.Longitude <= median {
-			lNodes = append(lNodes, node)
-			if len(lValues) == 0 || lValues[len(lValues)-1] != node.Position.Longitude {
-				lValues = append(lValues, node.Position.Longitude)
-			}
-		} else {
-			rNodes = append(rNodes, node)
-			if len(rValues) == 0 || rValues[len(rValues)-1] != node.Position.Longitude {
-				rValues = append(rValues, node.Position.Longitude)
-			}
-		}
+func build2D(sortedNodes []*SegmentNode, values []float64) (s *Segment2D) {
+	left, right := (*Segment2D)(nil), (*Segment2D)(nil)
+	if len(values) > 1 {
+		middle := len(values) >> 1
+		lValues, rValues := values[:middle], values[middle:]
+		middleIndex := sort.Search(len(sortedNodes), func(i int) bool {
+			return sortedNodes[i].Point.Longitude >= values[middle]
+		})
+		left, right = build2D(sortedNodes[:middleIndex], lValues), build2D(sortedNodes[middleIndex:], rValues)
 	}
 
-	s.Left, s.Right = Build2D(lNodes, lValues), Build2D(rNodes, rValues)
+	s = &Segment2D{
+		Start: values[0],
+		End:   values[len(values)-1],
+		Seg:   newSegment(sortedNodes),
+		Left:  left,
+		Right: right,
+	}
 	return
 }
 
-func NewSegment2D(nodes []*Node) *Segment2D {
-	sortedNodes := make([]*Node, len(nodes))
+func NewSegment2D(nodes []*SegmentNode) *Segment2D {
+	sortedNodes := make([]*SegmentNode, len(nodes))
 	values := make([]float64, 0)
 	copy(sortedNodes, nodes)
 
-	sort.Slice(sortedNodes, func(i, j int) bool {
-		return sortedNodes[i].Position.Longitude < sortedNodes[j].Position.Longitude
+	slices.SortFunc(sortedNodes, func(a, b *SegmentNode) int {
+		return cmp.Compare(a.Point.Longitude, b.Point.Longitude)
 	})
 	for _, node := range sortedNodes {
-		if len(values) == 0 || values[len(values)-1] != node.Position.Longitude {
-			values = append(values, node.Position.Longitude)
+		if len(values) == 0 || values[len(values)-1] != node.Point.Longitude {
+			values = append(values, node.Point.Longitude)
 		}
 	}
-	return Build2D(sortedNodes, values)
+	return build2D(sortedNodes, values)
 }
 
-func (s *Segment2D) Get(point Point, distance float64) []*Node {
+func (s *Segment2D) Get(point Point, distance float64) []*Edge {
 	buttomLeft, topRight := point.Move(-distance, -distance), point.Move(distance, distance)
 	return s.GetInterval(buttomLeft.Longitude, topRight.Longitude, buttomLeft.Latitude, topRight.Latitude)
 }
