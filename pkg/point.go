@@ -6,7 +6,7 @@ import (
 
 const (
 	EarthRadius = 6378137
-	Epsilon     = 1e-9
+	Epsilon     = 1e-6
 )
 
 type Point struct {
